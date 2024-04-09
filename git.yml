@@ -1,0 +1,8 @@
+---
+- name: Installing Git
+  hosts: localhost
+  tasks:
+    - name: Install Git dependency
+      apt:
+        name: git
+        state: present
