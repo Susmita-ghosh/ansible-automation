@@ -13,7 +13,6 @@
 #######################################################################################################
 ---
 - name: Creating Azure Network Resources
-  hosts: localhost
   connection: local 
   
   vars_prompt:
