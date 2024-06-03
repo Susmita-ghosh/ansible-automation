@@ -1,0 +1,50 @@
+---
+- name: Create Subnet {{ subnet_name }}
+  azure_rm_subnet:
+      name: "{{ subnet_name }}"
+      resource_group: "{{ resource_group }}"
+      virtual_network_name: "{{ vnet_name }}"
+      address_prefix_cidr: "{{ sub_cidr }}"
+      cloud_environment: "{{ cloud }}"
+      client_id: "{{ client_id }}"
+      secret: "{{ secret }}"
+      tenant: "{{ tenant }}"
+      subscription_id: "{{ subscription }}"
+  register: subnet_info
+  ignore_errors: True
+- name: Send response to Web API for passed cases
+  ansible.builtin.uri:
+       url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+       method: POST
+       body_format: json
+       headers: 
+           Content-Type: application/json
+           Authorization: Bearer {{ token }}
+       body: 
+          playbook_result: "{{ subnet_info }}"
+          status: completed
+  when: subnet_info.failed == false
+- name: Send respone to the Web API for failed cases
+  ansible.builtin.uri:
+       url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+       method: POST
+       body_format: json
+       headers: 
+           Content-Type: application/json
+           Authorization: Bearer {{ token }}
+       body: 
+          playbook_result: "{{ subnet_info.msg }}"
+          status: error
+  when: subnet_info.failed == true and (subnet_info.module_stderr is undefined)
+- name: Send respone to the Web API for failed cases
+  ansible.builtin.uri:
+       url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+       method: POST
+       body_format: json
+       headers: 
+           Content-Type: application/json
+           Authorization: Bearer {{ token }}
+       body: 
+          playbook_result: "{{ subnet_info.module_stderr.split('\nazure.core.exceptions.')[1]  }}"
+          status: error
+  when: subnet_info.failed == true and (subnet_info.module_stderr is defined) 

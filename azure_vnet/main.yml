@@ -1,0 +1,94 @@
+---
+- name: Main File for Azure VNET
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+      cloud: "AzureCloud"
+      resource_group: " "
+      vnet_name: " "
+      client_id: " "
+      secret: " "
+      subscription: " "
+      tenant: " "
+      operation: " "
+      subnet_name: " "
+      cidr: " "
+      sub_cidr: " "
+      token: " "
+      incident_id: " "
+      law_name: " "
+      diag_name: " "
+  tasks:
+      - name: Get Specific VNET Information
+        ansible.builtin.include_role:
+            name: vnet
+            tasks_from: azure_vnet_info
+            public: yes
+        when: operation  == "azure_vnet_info"
+      - name: List all VNET Information
+        ansible.builtin.include_role:
+            name: vnet
+            tasks_from: azure_vnet_list
+            public: yes
+        when: operation  == "azure_vnet_list"
+      - name: Create VNET Task
+        ansible.builtin.include_role:
+            name: vnet
+            tasks_from: azure_vnet_create
+            public: yes
+        when: operation == "azure_vnet_create" or operation == "azure_vnet_create_sub"
+      - name: Create Subnet Task
+        ansible.builtin.include_role:
+             name: vnet
+             tasks_from: azure_subnet_create
+             public: yes
+        when: operation == "azure_vnet_create_sub" and (subnet_name != "")
+      - name: Delete VNET Task
+        ansible.builtin.include_role:
+              name: vnet
+              tasks_from: azure_vnet_delete
+              public: yes
+        when: operation == "azure_vnet_delete"
+      - name: Check IP availablity in VNET Task
+        ansible.builtin.include_role:
+              name: vnet
+              tasks_from: azure_vnet_check_ip
+              public: yes
+        when: operation == "azure_vnet_check_ip" and (ip_add is defined )
+      - name: Add Log diagnostics for VNET with LAW
+        ansible.builtin.include_role:
+              name: vnet
+              tasks_from: azure_vnet_log_diag
+              public: yes
+        when: operation == "azure_vnet_log_diag" and (law_name is defined )
+      - name: Add Log diagnostics for VNET with storage account
+        ansible.builtin.include_role:
+              name: vnet
+              tasks_from: azure_vnet_log_store
+              public: yes
+        when: operation == "azure_vnet_log_store" and (storage_name is defined )
+      - name: Add Custom DNS
+        ansible.builtin.include_role:
+              name: vnet
+              tasks_from: azure_vnet_dns_custom
+              public: yes
+        when: operation == "azure_vnet_dns_custom"
+      - name: Update VNET to default DNS
+        ansible.builtin.include_role:
+              name: vnet
+              tasks_from: azure_vnet_dns_default
+              public: yes
+        when: operation == "azure_vnet_dns_default"
+      - name: Delete VNET diagonistic Settings
+        ansible.builtin.include_role:
+              name: vnet
+              tasks_from: azure_vnet_log_disable
+              public: yes
+        when: operation == "azure_vnet_log_disable"
+        
+      
+
+    
+

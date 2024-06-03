@@ -1,0 +1,42 @@
+---
+- name: Collecting VNET from {{ resource_group }}
+  azure_rm_virtualnetwork_info:
+         resource_group: "{{ resource_group }}"
+         cloud_environment: "{{ cloud }}"
+         client_id: "{{ client_id }}"
+         secret: "{{ secret }}"
+         tenant: "{{ tenant }}"
+         subscription_id: "{{ subscription }}"
+  register: vnet_info
+  ignore_errors: true
+- name: Send respone to the Web API for failed cases
+  ansible.builtin.uri:
+       url: http://20.244.46.138/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+       method: POST
+       body_format: json
+       headers: 
+           Content-Type: application/json
+           Authorization: Bearer {{ token }}
+       body: 
+          playbook_result: "{{ vnet_info.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+          status: error
+  when: vnet_info.failed == true
+- name: Send response to Web API for passed cases
+  ansible.builtin.uri:
+       url: http://20.244.46.138/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+       method: POST
+       body_format: json
+       headers: 
+           Content-Type: application/json
+           Authorization: Bearer {{ token }}
+       body: 
+          playbook_result: "{{ vnet_info }}"
+          status: completed
+  when: vnet_info.failed == false
+  
+
+
+
+
+
+         

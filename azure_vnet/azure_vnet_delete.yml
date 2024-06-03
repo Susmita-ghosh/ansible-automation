@@ -1,0 +1,37 @@
+---
+- name: Deleting {{ vnet_name }}
+  azure_rm_virtualnetwork:         
+         name: "{{ vnet_name }}"
+         resource_group: "{{ resource_group }}"
+         cloud_environment: "{{ cloud }}"
+         client_id: "{{ client_id }}"
+         secret: "{{ secret }}"
+         tenant: "{{ tenant }}"
+         subscription_id: "{{ subscription }}"
+         state: absent
+  register: vnet_del
+  ignore_errors: true
+- name: Send response to the Web API for failed cases
+  ansible.builtin.uri:
+       url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+       method: POST
+       body_format: json
+       headers: 
+           Content-Type: application/json
+           Authorization: Bearer {{ token }}
+       body: 
+          playbook_result: "{{ vnet_del.msg }}"
+          status: error
+  when: vnet_del.failed == true
+- name: Send response to the Web API for passed cases
+  ansible.builtin.uri:
+       url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+       method: POST
+       body_format: json
+       headers: 
+           Content-Type: application/json
+           Authorization: Bearer {{ token }}
+       body: 
+          playbook_result: "{{ vnet_del }}"
+          status: completed
+  when: vnet_del.failed == false

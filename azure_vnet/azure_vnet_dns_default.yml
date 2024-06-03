@@ -1,0 +1,40 @@
+---
+- name: Updating Azure Vnet to default Azure DNS 
+  azure_rm_virtualnetwork:
+            name: "{{ vnet_name }}"
+            resource_group: "{{ resource_group }}"
+            client_id: "{{ client_id }}"
+            secret: "{{ secret }}"
+            tenant: "{{ tenant }}"
+            subscription_id: "{{ subscription }}"
+            purge_dns_servers: true 
+  register: dns
+  ignore_errors: true
+  #When the Custom DNS updated or passed Events
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ dns.state }}"
+      status: completed
+  when: dns.failed == false
+#Some information not provided and failed event:
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ dns.msg }}"
+      status: error
+  when: 
+     - dns.failed == true
+     - dns.msg is defined               

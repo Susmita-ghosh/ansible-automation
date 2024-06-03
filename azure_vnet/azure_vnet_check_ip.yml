@@ -1,0 +1,59 @@
+---
+- name: Checking for Private IP availability in {{ vnet_name }}
+  azure_rm_resource:
+    url: https://management.azure.com/subscriptions/{{ subscription }}/resourceGroups/{{ resource_group }}/providers/Microsoft.Network/virtualNetworks/{{ vnet_name }}/CheckIPAddressAvailability?ipAddress={{ ip_add }}&api-version=2023-09-01
+    client_id: "{{ client_id }}"
+    secret: "{{ secret }}"
+    tenant: "{{ tenant }}"
+    subscription_id: "{{ subscription }}"
+    method: GET
+  register: ip_status
+  ignore_errors: true
+# When The Check IP Ran successfully
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ ip_status.response }}"
+      status: completed
+  when: ip_status.failed == false
+# When Subnet IP Address out of Bound error found
+- name: For Subnet OutofBound Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ ip_status.module_stderr.split('message')[1].split('\":\"')[1].split('\",\"')[0] }}"
+      status: error
+  when: 
+     - ip_status.failed == true
+     - ip_status.module_stderr is defined
+# when Authentication /Authorization Error
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ ip_status.msg }}"
+      status: error
+  when: 
+     - ip_status.failed == true
+     - ip_status.msg is defined
+     - ip_status.module_stderr is undefined
+
+
+
+

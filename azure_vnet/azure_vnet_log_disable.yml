@@ -1,0 +1,43 @@
+- name: Deleting Diagonistic Settings
+  azure.azcollection.azure_rm_monitordiagnosticsetting:
+        name: "{{ diag_name }}"
+        cloud_environment: "{{ cloud }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        tenant: "{{ tenant }}"
+        subscription_id: "{{ subscription }}"
+        resource:
+          name: "{{ vnet_name }}"
+          type: "Microsoft.Network/virtualNetworks"
+          resource_group: "{{ resource_group }}"
+        state: absent
+  register: diag
+
+  #When the Diagnostic is enabled or passed Events
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ diag.state }}"
+      status: completed
+  when: diag.failed == false
+#Some information not provided and failed event:
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ diag.msg }}"
+      status: error
+  when: 
+     - diag.failed == true
+     - diag.msg is defined
