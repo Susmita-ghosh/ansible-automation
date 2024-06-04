@@ -1,0 +1,59 @@
+---
+- name: Creating Route Table "{{ rt_name }}"
+  azure_rm_routetable: 
+          name: "{{ rt_name }}"
+          resource_group: "{{ resource_group }}"
+          location: "{{ location }}"
+          client_id: "{{ client_id }}"
+          secret: "{{ secret }}"
+          tenant: "{{ tenant }}"
+          subscription_id: "{{ subscription }}"
+          disable_bgp_route_propagation: "{{ disable_bgp_route_propagation }}"
+  register: rt_table
+  ignore_errors: true
+
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ rt_table.id }}"
+      status: completed
+  when: rt_table.failed == false
+#Some information not provided and failed event:
+- name: For Existing or Overlapping Table
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ rt_table.msg }}"
+      status: error
+  when: 
+     - rt_table.failed == true
+     - rt_table.msg is defined
+     - rt_table.module_stderr is undefined
+# Authentication & Authorization Traceback
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ rt_table.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+      status: error
+  when: 
+     - rt_table.failed == true
+     - rt_table.module_stderr is defined
+
+

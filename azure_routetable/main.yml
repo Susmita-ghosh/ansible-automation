@@ -1,0 +1,64 @@
+---
+- name: Main File for Azure Routetable
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+      cloud: "AzureCloud"
+      resource_group: " "
+      vnet_name: " "
+      client_id: " "
+      secret: " "
+      subscription: " "
+      tenant: " "
+      operation: " "
+  tasks:
+      - name: Create Route Table
+        ansible.builtin.include_role:
+            name: route
+            tasks_from: azure_route_create
+            public: yes
+        when: operation  == "azure_route_create"
+      - name: View Specific Route Table
+        ansible.builtin.include_role:
+            name: route
+            tasks_from: azure_route_get
+            public: yes
+        when: operation == "azure_route_get"
+      - name: Listing the Route Tables
+        ansible.builtin.include_role:
+             name: route
+             tasks_from: azure_route_list
+             public: yes
+        when: operation == "azure_route_list"
+      - name: Update Route Table
+        ansible.builtin.include_role:
+             name: route
+             tasks_from: azure_route_update
+             public: yes
+        when: operation == "azure_route_update"
+      - name: Delete Route Table
+        ansible.builtin.include_role:
+              name: route
+              tasks_from: azure_route_delete
+              public: yes
+        when: operation == "azure_route_delete"
+      - name: Associate Route Table with Subnet
+        ansible.builtin.include_role:
+              name: route
+              tasks_from: azure_route_with_subnet
+              public: yes
+        when: operation == "azure_route_with_subnet"
+      - name: Disassociate Route Table with Subnet
+        ansible.builtin.include_role:
+              name: route
+              tasks_from: azure_route_subnet_dis
+              public: yes
+        when: operation == "azure_route_subnet_dis"
+     
+        
+      
+
+    
+

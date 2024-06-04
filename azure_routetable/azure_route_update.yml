@@ -1,0 +1,135 @@
+---
+- name: Updating Route Table "{{ rt_name }}"
+  azure_rm_route: 
+          route_table_name: "{{ rt_name }}"
+          resource_group: "{{ resource_group }}"
+          address_prefix: "{{ route_ip_s }}"
+          name: "{{ route_name }}"
+          client_id: "{{ client_id }}"
+          secret: "{{ secret }}"
+          tenant: "{{ tenant }}"
+          subscription_id: "{{ subscription }}"
+  register: new_route
+  ignore_errors: true
+  when: 
+     - route_ip_s is defined
+     - next_hop_type is undefined
+     - next_hop_ip_address is undefined
+     - isDelete is undefined
+- name: setting the variable
+  set_fact:
+       route_info: "{{ new_route }}"
+  when: new_route.failed is defined
+
+
+- name: Updating Route Table "{{ rt_name }}" when next hop is defined
+  azure_rm_route: 
+          route_table_name: "{{ rt_name }}"
+          resource_group: "{{ resource_group }}"
+          address_prefix: "{{ route_ip_s }}"
+          name: "{{ route_name }}"
+          next_hop_type: "{{ next_hop_type }}"
+          client_id: "{{ client_id }}"
+          secret: "{{ secret }}"
+          tenant: "{{ tenant }}"
+          subscription_id: "{{ subscription }}"
+  register: new_route
+  ignore_errors: true
+  when: 
+     - route_ip_s is defined
+     - next_hop_type is defined and next_hop_type != "virtual_appliance"
+     - isDelete is undefined
+- name: setting the variable
+  set_fact:
+       route_info: "{{ new_route }}"
+  when: new_route.failed is defined
+
+- name: Updating Route Table "{{ rt_name }}" when next hop is defined and is Virtual appliance
+  azure_rm_route: 
+          route_table_name: "{{ rt_name }}"
+          resource_group: "{{ resource_group }}"
+          address_prefix: "{{ route_ip_s }}"
+          name: "{{ route_name }}"
+          next_hop_type: "{{ next_hop_type }}"
+          next_hop_ip_address: "{{ next_hop_ip_address }}"
+          client_id: "{{ client_id }}"
+          secret: "{{ secret }}"
+          tenant: "{{ tenant }}"
+          subscription_id: "{{ subscription }}"
+  register: new_route
+  ignore_errors: true
+  when: 
+     - route_ip_s is defined
+     - next_hop_type is defined and next_hop_type == "virtual_appliance"
+     - isDelete is undefined
+- name: setting the variable
+  set_fact:
+       route_info: "{{ new_route }}"
+  when: new_route.failed is defined
+
+
+- name: Deleting Routes
+  azure_rm_route: 
+          route_table_name: "{{ rt_name }}"
+          resource_group: "{{ resource_group }}"
+          name: "{{ route_name }}"
+          client_id: "{{ client_id }}"
+          secret: "{{ secret }}"
+          tenant: "{{ tenant }}"
+          subscription_id: "{{ subscription }}"
+          state: absent
+  register: new_route
+  ignore_errors: true
+  when: 
+    - isDelete is defined
+    - isDelete == true
+- name: setting the variable
+  set_fact:
+       route_info: "{{ new_route }}"
+  when: new_route.failed is defined
+
+#Sending Response activity
+
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ route_info.id }}"
+      status: completed
+  when: route_info.failed == false
+#Some information not provided and failed event:
+- name: For Failed Events
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ route_info.msg }}"
+      status: error
+  when: 
+     - route_info.failed == true
+     - route_info.msg is defined
+     - route_info.module_stderr is undefined
+# Authentication & Authorization Traceback
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ route_info.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+      status: error
+  when: 
+     - route_info.failed == true
+     - route_info.module_stderr is defined

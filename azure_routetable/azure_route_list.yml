@@ -1,0 +1,54 @@
+---
+- name: Listing Route Table in "{{ resource_group }}"
+  azure_rm_routetable_info:
+      resource_group: "{{ resource_group }}"
+      client_id: "{{ client_id }}"
+      secret: "{{ secret }}"
+      tenant: "{{ tenant }}"
+      subscription_id: "{{ subscription }}"
+  register: rt
+  ignore_errors: true
+
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ rt.route_tables }}"
+      status: completed
+  when: rt.failed == false
+#Some information not provided and failed event:
+- name: For Existing or Overlapping Table
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ rt.msg }}"
+      status: error
+  when: 
+     - rt.failed == true
+     - rt.msg is defined
+     - rt.module_stderr is undefined
+# Authentication & Authorization Traceback
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ rt.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+      status: error
+  when: 
+     - rt.failed == true
+     - rt.module_stderr is defined

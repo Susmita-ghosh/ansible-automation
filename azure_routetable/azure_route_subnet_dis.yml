@@ -1,0 +1,54 @@
+---
+- name: Disassociate Azure Subnet "{{ subnet_name }}"
+  azure_rm_subnet:
+    resource_group: "{{ resource_group }}"
+    virtual_network_name: "{{ vnet_name }}"
+    name: "{{ subnet_name }}"
+    route_table: "{{ rt_name }}"
+    state: absent
+  register: subnet_rt
+  ignore_errors: true
+
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_rt.state }}"
+      status: completed
+  when: subnet_rt.failed == false
+#Some information not provided and failed event:
+- name: For Overlapping Subnets Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_rt.msg }}"
+      status: error
+  when: 
+     - subnet_rt.failed == true
+     - subnet_rt.msg is defined
+     - subnet_rt.module_stderr is undefined
+# Authentication & Authorization Traceback
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_rt.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+      status: error
+  when: 
+     - subnet_rt.failed == true
+     - subnet_rt.module_stderr is defined
