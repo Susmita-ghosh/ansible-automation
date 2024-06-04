@@ -1,0 +1,91 @@
+---
+- name: Creating "{{ subnet_name }}" associated with "{{ vnet_name }}"
+  azure_rm_subnet: 
+        resource_group: "{{ resource_group }}"
+        virtual_network_name: "{{ vnet_name }}"
+        name: "{{ subnet_name }}"
+        address_prefix_cidr: "{{ sub_cidr }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        tenant: "{{ tenant }}"
+        subscription_id: "{{ subscription }}"
+  register: subnet
+  ignore_errors: true
+  when:
+     - sub_cidr is defined
+     - del_name is undefined and del_service is undefined
+
+- name: Setting up variable
+  set_fact: 
+        subnet_new: "{{ subnet }}"
+  when: subnet.failed is defined
+       
+    
+- name: Creating "{{ subnet_name }}" associated with "{{ vnet_name }}" when delegation is defined
+  azure_rm_subnet: 
+        resource_group: "{{ resource_group }}"
+        virtual_network_name: "{{ vnet_name }}"
+        name: "{{ subnet_name }}"
+        address_prefix_cidr: "{{ sub_cidr }}"
+        delegations:
+              - name: "{{ del_name }}"
+                serviceName: "{{ del_service }}"
+        client_id: "{{ client_id }}"
+        secret: "{{ secret }}"
+        tenant: "{{ tenant }}"
+        subscription_id: "{{ subscription }}"
+  register: subnet
+  ignore_errors: true
+  when: 
+     - sub_cidr is defined
+     - del_name is defined and del_service is defined
+- name: Setting up variable
+  set_fact: 
+        subnet_new: "{{ subnet }}"
+  when: subnet.failed is defined
+
+#Response and Error handling
+  #When the Subnet is created or passed Events
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_new.state }}"
+      status: completed
+  when: subnet_new.failed == false
+#Some information not provided and failed event:
+- name: For Overlapping Subnets Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_new.msg }}"
+      status: error
+  when: 
+     - subnet_new.failed == true
+     - subnet_new.msg is defined
+     - subnet_new.module_stderr is undefined
+# Authentication & Authorization Traceback
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_new.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+      status: error
+  when: 
+     - subnet_new.failed == true
+     - subnet_new.module_stderr is defined

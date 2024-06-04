@@ -1,0 +1,87 @@
+---
+- name: Update a subnet with service endpoint
+  azure_rm_subnet:
+    resource_group: "{{ resource_group }}"
+    virtual_network_name: "{{ vnet_name }}"
+    name: "{{ subnet_name }}"
+    # address_prefix_cidr: "{{ cidr.user_input }}"
+    service_endpoints:
+      - service: "{{ service_name }}"
+    client_id: "{{ client_id }}"
+    secret: "{{ secret }}"
+    tenant: "{{ tenant }}"
+    subscription_id: "{{ subscription }}"
+  register: service_ep
+  ignore_errors: true
+  when: 
+    - locations is undefined
+
+- name: Setting up variable
+  set_fact: 
+        service_new: "{{ service_ep }}"
+  when: service_ep.failed is defined
+
+- name: Update a subnet with service endpoint with locations
+  azure_rm_subnet:
+    resource_group: "{{ resource_group }}"
+    virtual_network_name: "{{ vnet_name }}"
+    name: "{{ subnet_name }}"
+    service_endpoints:
+      - service: "{{ service_name }}"
+        locations: "{{ locations }}"
+    client_id: "{{ client_id }}"
+    secret: "{{ secret }}"
+    tenant: "{{ tenant }}"
+    subscription_id: "{{ subscription }}"
+  register: service_ep
+  ignore_errors: true
+  when: 
+    - locations is defined
+- name: Setting up variable
+  set_fact: 
+        service_new: "{{ service_ep }}"
+  when: service_ep.failed is defined
+
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ service_new.state }}"
+      status: completed
+  when: service_new.failed == false
+#Some information not provided and failed event:
+- name: For Overlapping Subnets Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_new.msg }}"
+      status: error
+  when: 
+     - subnet_new.failed == true
+     - subnet_new.msg is defined
+     - subnet_new.module_stderr is undefined
+# Authentication & Authorization Traceback
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_new.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+      status: error
+  when: 
+     - subnet_new.failed == true
+     - subnet_new.module_stderr is defined

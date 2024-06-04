@@ -1,0 +1,82 @@
+---
+- name: Create or Update a subnet "{{ subnet_name }}" with delegation
+  azure_rm_subnet:
+    resource_group: "{{ resource_group }}"
+    virtual_network_name: "{{ vnet_name }}"
+    name: "{{ subnet_name }}"
+    # address_prefix_cidr: "{{ sub_cidr }}"
+    delegations:
+      - name: "{{ del_name }}"
+        serviceName: "{{ del_service }}"
+    client_id: "{{ client_id }}"
+    secret: "{{ secret }}"
+    tenant: "{{ tenant }}"
+    subscription_id: "{{ subscription }}"
+  register: subnet
+  when: 
+     - sub_cidr is defined
+     - del_service is defined
+  ignore_errors: true
+
+- name:  Update a subnet "{{ subnet_name }}" with delegation
+  azure_rm_subnet:
+    resource_group: "{{ resource_group }}"
+    virtual_network_name: "{{ vnet_name }}"
+    name: "{{ subnet_name }}"
+    delegations:
+      - name: "{{ del_name }}"
+        serviceName: "{{ del_service }}"
+    client_id: "{{ client_id }}"
+    secret: "{{ secret }}"
+    tenant: "{{ tenant }}"
+    subscription_id: "{{ subscription }}"
+  register: subnet_del
+  when: 
+     - sub_cidr is undefined
+     - del_service is defined
+  ignore_errors: true
+
+  #When the Subnet is created or passed Events
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_del }}"
+      status: completed
+  when: subnet_del.failed == false
+  #When the Arguments requirement not fulfilled or Subnet doesnt exists if no cidr is passed
+- name: For Arguments unfulfillment
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_del.msg }}"
+      status: error
+  when: 
+     - subnet_del.failed == true
+     - subnet_del.msg is defined
+     - subnet_del.module_stderr is undefined
+    #When Error messgae not defined or Auth Errors
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_del.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+      status: error
+  when: 
+     - subnet_del.failed == true
+     - subnet_del.module_stderr is defined

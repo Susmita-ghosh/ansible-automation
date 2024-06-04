@@ -1,0 +1,59 @@
+---
+- name: Update a subnet "{{ subnet_name }}" with Network Security Group
+  azure_rm_subnet:
+    resource_group: "{{ resource_group }}"
+    virtual_network_name: "{{ vnet_name }}"
+    name: "{{ subnet_name }}"
+    security_group:
+      name: "{{ nsg_name }}"
+      resource_group: "{{ nsg_rg }}"
+    client_id: "{{ client_id }}"
+    secret: "{{ secret }}"
+    tenant: "{{ tenant }}"
+    subscription_id: "{{ subscription }}"
+  register: subnet_nsg
+  ignore_errors: true
+
+- name: Successful run
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_nsg.state }}"
+      status: completed
+  when: subnet_nsg.failed == false
+#Some information not provided and failed event:
+- name: For Overlapping Subnets Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_nsg.msg }}"
+      status: error
+  when: 
+     - subnet_nsg.failed == true
+     - subnet_nsg.msg is defined
+     - subnet_nsg.module_stderr is undefined
+# Authentication & Authorization Traceback
+- name: For Authentication/Authorization Error
+  ansible.builtin.uri:
+    url: http://localhost/microservice/ansible/incident/playbook/result_update?incident_id={{ incident_id }}
+    method: POST
+    body_format: json
+    headers: 
+        Content-Type: application/json
+        Authorization: Bearer {{ token }}
+    body: 
+      playbook_result: "{{ subnet_nsg.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+      status: error
+  when: 
+     - subnet_nsg.failed == true
+     - subnet_nsg.module_stderr is defined

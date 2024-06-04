@@ -1,0 +1,70 @@
+---
+- name: Main File for Azure Subnet
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+      cloud: "AzureCloud"
+      resource_group: " "
+      vnet_name: " "
+      client_id: " "
+      secret: " "
+      subscription: " "
+      tenant: " "
+      operation: " "
+  tasks:
+      - name: Create Subnet with cidr range
+        ansible.builtin.include_role:
+            name: subnet
+            tasks_from: azure_subnet_create
+            public: yes
+        when: operation  == "azure_subnet_create"
+      - name: View Specific Subnet
+        ansible.builtin.include_role:
+            name: subnet
+            tasks_from: azure_subnet_info
+            public: yes
+        when: operation == "azure_subnet_info"
+      - name: Subnet with Delegation
+        ansible.builtin.include_role:
+             name: subnet
+             tasks_from: azure_subnet_with_delegation
+             public: yes
+        when: operation == "azure_subnet_with_delegation"
+      - name: Subnet with Service Endpoint
+        ansible.builtin.include_role:
+             name: subnet
+             tasks_from: azure_subnet_with_serviceep
+             public: yes
+        when: operation == "azure_subnet_with_serviceep"
+      - name: Delete Subnet
+        ansible.builtin.include_role:
+              name: subnet
+              tasks_from: azure_subnet_delete
+              public: yes
+        when: operation == "azure_subnet_delete"
+      - name: Associate Route Table with Subnet
+        ansible.builtin.include_role:
+              name: subnet
+              tasks_from: azure_subnet_route
+              public: yes
+        when: operation == "azure_subnet_route"
+      - name: Associate NSG with Subnet
+        ansible.builtin.include_role:
+              name: subnet
+              tasks_from: azure_subnet_with_nsg
+              public: yes
+        when: operation == "azure_subnet_with_nsg"
+      - name: Associate NAT with Subnet
+        ansible.builtin.include_role:
+              name: subnet
+              tasks_from: azure_subnet_with_nat
+              public: yes
+        when: operation == "azure_subnet_with_nat"
+     
+        
+      
+
+    
+
