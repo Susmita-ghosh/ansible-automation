@@ -1,0 +1,20 @@
+---
+- name: Main File for Azure Repo
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+      cloud: "AzureCloud"
+      client_id: " "
+      secret: " "
+      subscription: " "
+      tenant: " "
+      operation: " "
+  tasks:
+      - name: Fetch Azure Repository Info
+        ansible.builtin.include_role:
+            name: repolist
+            tasks_from: azure_repo
+            public: yes
+        when: operation  == "azure_repo"
