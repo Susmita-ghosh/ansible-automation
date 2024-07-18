@@ -1,0 +1,22 @@
+---
+- name: Block to create the user in Azure AD
+  block:
+    - name: Delete Azure AD User
+      azure.azcollection.azure_rm_aduser:
+          user_principal_name: "{{ upn }}"
+          state: "absent"
+          cloud_environment: "{{ cloud }}"
+          client_id: "{{ client_id }}"
+          secret: "{{ secret }}"
+          tenant: "{{ tenant }}"
+          subscription_id: "{{ subscription }}"
+      register: new_user
+  rescue:
+     - name: Authentication or Authorization Error
+       set_fact:
+           error: "{{ ansible_failed_result.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+       when: ansible_failed_result.module_stderr.split('\nazure.core.exceptions.') is defined
+     - name: Other General Error
+       set_fact:
+           error: "{{ ansible_failed_result.msg }}"
+       when: ansible_failed_result.module_stderr.split('\nazure.core.exceptions.') is undefined    

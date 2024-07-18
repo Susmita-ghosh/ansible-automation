@@ -1,0 +1,40 @@
+---
+- name: Main File for Azure IAM
+  hosts: localhost
+  connection: local 
+  gather_facts: false
+
+  vars:
+     cloud: "AzureCloud"
+     client_id: ""
+     secret: ""
+     subscription: ""
+     tenant: ""
+     operation: "azure_users_list"
+     incident_id: " "
+     token: " "
+  tasks:
+     - name: Get the list of Azure AD users
+       ansible.builtin.include_role:
+            name: iam
+            tasks_from: azure_users_list
+            public: yes
+       when: operation == "azure_users_list"
+     - name: Get info of Azure AD users
+       ansible.builtin.include_role:
+            name: iam
+            tasks_from: azure_user_info
+            public: yes
+       when: operation == "azure_user_info"
+     - name: Create Azure AD users
+       ansible.builtin.include_role:
+            name: iam
+            tasks_from: azure_user_create
+            public: yes
+       when: operation == "azure_user_create"
+     - name: Delete Azure AD users
+       ansible.builtin.include_role:
+            name: iam
+            tasks_from: azure_user_delete
+            public: yes
+       when: operation == "azure_user_delete"

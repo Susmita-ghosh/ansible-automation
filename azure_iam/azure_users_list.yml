@@ -1,0 +1,30 @@
+---
+- name: Block to List the users
+  block:
+    - name: Genrate Access Tokens
+      azure.azcollection.azure_rm_accesstoken_info:
+          client_id: "{{ client_id }}"
+          secret: "{{ secret }}"
+          tenant: "{{ tenant }}"
+          subscription_id: "{{ subscription }}"
+          scopes:
+          - https://graph.microsoft.com/.default
+      register: azure_token
+    - name: Listing Azure AD users
+      ansible.builtin.uri:
+          url: https://graph.microsoft.com/v1.0/users
+          method: GET
+          headers: 
+              Content-Type: application/json
+              Authorization: Bearer {{ azure_token.access_token }}
+      register: user_list
+  rescue:
+     - name: Authentication or Authorization Error
+       set_fact:
+           error: "{{ ansible_failed_result.module_stderr.split('\nazure.core.exceptions.')[1] }}"
+       when: ansible_failed_result.module_stderr.split('\nazure.core.exceptions.') is defined
+     - name: Other General Error
+       set_fact:
+           error: "{{ ansible_failed_result.msg }}"
+       when: ansible_failed_result.module_stderr.split('\nazure.core.exceptions.') is undefined
+  
